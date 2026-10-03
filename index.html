@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Control de Calidad · Proceso</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f4f6f8;--c:#fff;--t:#1d2733;--m:#6b7785;--b:#d9dfe5;--p:#0b5cab;--ok:#1b8a4b;--no:#c62f2f}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#12171c;--c:#1b222a;--t:#e8edf2;--m:#93a0ae;--b:#2d3743;--p:#5aa2ee;--ok:#3fbf75;--no:#ef6a6a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px system-ui,sans-serif}
+main{max-width:900px;margin:0 auto;padding:12px}
+h1{font-size:18px;margin:4px 0 12px}h2{font-size:15px;margin:0 0 10px}
+.card{background:var(--c);border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:12px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--m);gap:3px}
+input,select{font:inherit;color:var(--t);background:var(--bg);border:1px solid var(--b);border-radius:7px;padding:8px;width:100%}
+button{font:inherit;cursor:pointer;border:1px solid var(--b);background:var(--c);color:var(--t);border-radius:7px;padding:8px 12px}
+.pri{background:var(--p);border-color:var(--p);color:#fff}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--b)}
+.seg{display:flex}.seg button{padding:6px 10px;border-radius:0;margin-left:-1px}
+.seg button.on.g{background:var(--ok);color:#fff}.seg button.on.r{background:var(--no);color:#fff}.seg button.on.na{background:var(--m);color:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{min-width:44px;padding:6px}.chips .r{background:var(--no);color:#fff}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--b);padding:5px;text-align:left}
+.ok{color:var(--ok);font-weight:600}.bad{color:var(--no);font-weight:600}.hint{font-size:12px;color:var(--m)}
+@media print{.noprint{display:none!important}body{background:#fff;color:#000}}
+</style></head><body><main>
+<h1>Registro de control de proceso · Vasos, envases y tapas</h1>
+<div class="card noprint"><div class="g">
+<label>Fecha<input type="date" id="fecha"></label>
+<label>Turno<select id="turno"><option>Día</option><option>Noche</option></select></label>
+<label>Analista<input id="analista" list="ana" placeholder="Apellidos y nombres"><datalist id="ana"><option>ENMANUEL PEÑA</option><option>MIRELLA HUILCA</option></datalist></label>
+</div></div>
+<div class="card noprint"><h2 id="ft">Nuevo registro</h2><div id="form"></div></div>
+<div class="card"><h2>Registros <span class="hint" id="cnt"></span></h2>
+<div class="bar noprint"><button onclick="xl()">Excel</button><button onclick="print()">Imprimir</button></div>
+<div style="overflow-x:auto;margin-top:10px"><table id="tb"></table></div></div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const LS=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}};
+// Referencias por máquina tomadas del Excel (valores nominales, NO tolerancias)
+const ENV={MFELP:[121.5,101.3,123.25,4.8,18.16,180,330],'MFE0.9D':[121.5,101.3,123.25,4.8,18.16,180,330],MFBS:[187,147.1,196,5.3,40.8,null,280],MFBR:[194,146.13,127.55,5.15,30.07,null,280],MFV12D:[81,53.2,110.7,3.18,7.35,115,210],'MFT4.5-8':[81,53.2,110.7,3.18,7.35,115,210],MFTC:[81,53.2,110.7,3.18,7.35,115,210],MFV16:[89.9,66.47,116.2,3.28,10.62,115,210],'MFDP-D':[95.4,65.6,116,4.1,18.67,110,null],'MFE0.5D':[95.4,65.6,116,4.1,11.23,220,275],'MFE0.5B-M':[108,92,86,4.1,12.13,280,225],'MFE0.9-1N':[115.5,97.9,85,4.8,12.97,null,null],MFE180R:[80.9,66.9,50.5,3,5.11,221,null]};
+const TAP={'MFT0.5 LT':[124.4,121.2,16.5,8.63,400],'MFT0.5 LT-1':[124.4,121.2,16.5,8.63,400],'MFT1LT -1':[124.4,121.2,16.5,8.63,400],MFTP1L:[109.84,106.54,17.35,7.5,420],MFTPH:[97.24,93.7,16.56,5.93,280]};
+// [clave, etiqueta, 1 = "SI" es conforme / 0 = "NO" es conforme]
+const CK={E:[['despeje','Despeje de línea',1],['sellado','Sellado lateral y fondo',1],['curling','Formado de curling',1],['desgarre','Desgarre',1],['rayaduras','Rayaduras',0],['puntos','Puntos / grasa',0],['repinte','Repinte',0],['marca','Marca distintiva en el blank',1],['funcional','Prueba funcional',1]],
+T:[['despeje','Despeje de línea',1],['color','Diferencia de color',0],['tamano','Diferencia de tamaño',0],['cierre','Cierre de tapa y envase',1],['blank','Sellado blank y aro',1],['desgarre','Desgarre',1],['repinte','Repinte',0],['movidas','Movidas',0],['rebaba','Rebaba',0],['perf','Mal perforadas',0],['marca','Marca distintiva (circulina/cintillo)',1]]};
+const MS={E:[['sup','Diám. superior (mm)'],['inf','Diám. inferior (mm)'],['alt','Altura (mm)'],['curl','Curling (mm)'],['peso','Peso (g)'],['tl','T° sellado lateral (°C)'],['tf','T° sellado fondo (°C)']],
+T:[['sup','Diám. superior (mm)'],['inf','Diám. inferior (mm)'],['alt','Altura (mm)'],['peso','Peso (g)'],['ts','T° sellado (°C)']]};
+const AQL=[[2,2],[9,3],[16,5],[26,8],[51,13],[91,20],[151,32],[281,50],[501,80],[1201,125],[3201,200],[10001,315],[35001,500],[150001,800],[500001,1250]];
+const aql=l=>{let r=null;for(const[a,b]of AQL)if(l>=a)r=b;return r};
+const tipo=m=>TAP[m]?'T':'E';
+const ref=m=>{const a=ENV[m]||TAP[m]||[];const o={};if(m)MS[tipo(m)].forEach((k,i)=>o[k[0]]=a[i]);return o};
+let regs=LS('cc_regs')||[],head=LS('cc_head')||{fecha:new Date().toISOString().slice(0,10),turno:'Día',analista:''},cur,editId=null;
+const nuevo=m=>{const ck={};CK[m?tipo(m):'E'].forEach(c=>ck[c[0]]=c[2]?'SI':'NO');return{maq:m||'',op:'',cli:'',prod:'',avance:'',lote:'',muestra:'',ck,ms:{},fil:Array(10).fill('NO')}};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function nc(r){const t=tipo(r.maq),l=[];CK[t].forEach(c=>{const v=r.ck[c[0]];if(v&&v!='N/A'&&(v=='SI')!=(c[2]==1))l.push(c[1])});if(t=='E')r.fil.forEach((v,i)=>{if(v=='SI')l.push('Filtración molde '+(i+1))});return l}
+function form(){const r=cur,t=r.maq?tipo(r.maq):null,rf=ref(r.maq);
+let h=`<div class="g"><label>Máquina<select data-f="maq" id="maq"><option value="">Seleccionar…</option>${[...Object.keys(ENV),...Object.keys(TAP)].map(m=>`<option ${m==r.maq?'selected':''}>${m}</option>`).join('')}</select></label>
+<label>OP<input data-f="op" value="${esc(r.op)}"></label><label>Cliente<input data-f="cli" value="${esc(r.cli)}"></label>
+<label>Producto<input data-f="prod" value="${esc(r.prod)}"></label><label>Cantidad avance<input data-f="avance" type="number" value="${esc(r.avance)}"></label>
+<label>Tamaño de lote (opcional)<input data-f="lote" type="number" value="${esc(r.lote)}"></label>
+<label>Cantidad de muestra<input data-f="muestra" id="muestra" type="number" value="${esc(r.muestra)}"></label></div>
+<div class="hint" id="aqlh"></div>`;
+if(t){h+=`<h2 style="margin-top:14px">Inspección</h2>`+CK[t].map(c=>`<div class="row"><span>${c[1]}</span><div class="seg">${['SI','NO','N/A'].map(v=>`<button type="button" data-ck="${c[0]}" data-v="${v}" class="${r.ck[c[0]]==v?'on '+(v=='N/A'?'na':((v=='SI')==(c[2]==1)?'g':'r')):''}">${v}</button>`).join('')}</div></div>`).join('');
+h+=`<h2 style="margin-top:14px">Medidas <span class="hint">(placeholder = valor de referencia de la máquina)</span></h2><div class="g">`+MS[t].map(k=>`<label>${k[1]}<input type="number" step="any" data-m="${k[0]}" value="${esc(r.ms[k[0]])}" placeholder="${rf[k[0]]??'-'}"></label>`).join('')+`</div>`;
+if(t=='E')h+=`<h2 style="margin-top:14px">Migración de agua / moldes <span class="hint">(NO = sin filtración)</span></h2><div class="chips">${r.fil.map((v,i)=>`<button type="button" data-fil="${i}" class="${v=='SI'?'r':''}">${i+1}: ${v}</button>`).join('')}</div>`}
+h+=`<div class="bar"><button class="pri" onclick="save()">${editId?'Guardar cambios':'Agregar registro'}</button>${editId?'<button onclick="reset()">Cancelar</button>':''}</div>`;
+$('#form').innerHTML=h;$('#ft').textContent=editId?'Editando registro':'Nuevo registro'}
+function reset(){editId=null;cur=nuevo();form()}
+function save(){if(!cur.maq||!cur.op||!cur.muestra)return alert('Máquina, OP y cantidad de muestra son obligatorios.');
+const ms={};MS[tipo(cur.maq)].forEach(k=>{const v=cur.ms[k[0]];if(v!==undefined&&v!=='')ms[k[0]]=+v});
+const rec={...cur,ms,id:editId||Date.now(),fecha:head.fecha,turno:head.turno,analista:head.analista};
+if(editId)regs=regs.map(x=>x.id==editId?rec:x);else regs.push(rec);
+LS('cc_regs',regs);const keep=cur.maq;editId=null;cur=nuevo(keep);cur.op='';form();list()}
+function list(){const R=[...regs].reverse();$('#cnt').textContent=`(${regs.length} · ${regs.filter(r=>nc(r).length).length} no conformes)`;
+$('#tb').innerHTML='<tr><th>Fecha</th><th>Turno</th><th>Máquina</th><th>OP</th><th>Producto</th><th>Muestra</th><th>Avance</th><th>Resultado</th><th class="noprint"></th></tr>'+R.map(r=>{const n=nc(r);return`<tr><td>${r.fecha}</td><td>${r.turno}</td><td>${esc(r.maq)}</td><td>${esc(r.op)}</td><td>${esc(r.prod)}</td><td>${r.muestra}</td><td>${r.avance}</td><td class="${n.length?'bad':'ok'}">${n.length?'NO CONFORME: '+esc(n.join(', ')):'Conforme'}</td><td class="noprint"><button onclick="ed(${r.id})">✎</button> <button onclick="del(${r.id})">✕</button></td></tr>`}).join('')}
+function ed(id){const r=regs.find(x=>x.id==id);editId=id;cur=JSON.parse(JSON.stringify(r));form();scrollTo(0,0)}
+function del(id){if(confirm('¿Eliminar registro?')){regs=regs.filter(x=>x.id!=id);LS('cc_regs',regs);list()}}
+function xl(){if(!window.XLSX)return alert('No se pudo cargar la librería de Excel (¿sin internet?).');
+const rows=regs.map(r=>{const t=tipo(r.maq),o={Fecha:r.fecha,Turno:r.turno,Analista:r.analista,Máquina:r.maq,Tipo:t=='E'?'Envase/Vaso':'Aro/Tapa',Cliente:r.cli,OP:r.op,Producto:r.prod,'Cantidad avance':r.avance,Lote:r.lote,'Cantidad de muestra':r.muestra};
+CK[t].forEach(c=>o[c[1]]=r.ck[c[0]]);MS[t].forEach(k=>o[k[1]]=r.ms[k[0]]??'');if(t=='E')r.fil.forEach((v,i)=>o['Filtración '+(i+1)]=v);o.Resultado=nc(r).length?'NO CONFORME':'Conforme';o['No conformidades']=nc(r).join('; ');return o});
+const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Registro');XLSX.writeFile(wb,`Control_Proceso_${head.fecha}_${head.turno}.xlsx`)}
+document.addEventListener('input',e=>{const d=e.target.dataset;if(d.f){cur[d.f]=e.target.value;if(d.f=='maq'){const k=cur.maq;const keep={op:cur.op,cli:cur.cli,prod:cur.prod,avance:cur.avance,lote:cur.lote,muestra:cur.muestra};cur=Object.assign(nuevo(k),keep);form()}
+if(d.f=='lote'){const s=aql(+e.target.value);$('#aqlh').textContent=s?`Muestra sugerida por tabla AQL: ${s}`:'';if(s&&!cur.muestra){cur.muestra=s;$('#muestra').value=s}}}
+if(d.m)cur.ms[d.m]=e.target.value;
+if(e.target.closest('.card')&&['fecha','turno','analista'].includes(e.target.id)){head[e.target.id]=e.target.value;LS('cc_head',head)}});
+document.addEventListener('click',e=>{const b=e.target.closest('button'),d=b&&b.dataset;if(!d)return;
+if(d.ck){cur.ck[d.ck]=d.v;form()}if(d.fil!==undefined){cur.fil[d.fil]=cur.fil[d.fil]=='SI'?'NO':'SI';form()}});
+$('#fecha').value=head.fecha;$('#turno').value=head.turno;$('#analista').value=head.analista;
+cur=nuevo();form();list();
+</script></body></html>
