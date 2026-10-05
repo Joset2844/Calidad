@@ -2,7 +2,7 @@
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Control de Calidad · Proceso</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
 :root{--bg:#f4f6f8;--c:#fff;--t:#1d2733;--m:#6b7785;--b:#d9dfe5;--p:#0b5cab;--ok:#1b8a4b;--no:#c62f2f}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#12171c;--c:#1b222a;--t:#e8edf2;--m:#93a0ae;--b:#2d3743;--p:#5aa2ee;--ok:#3fbf75;--no:#ef6a6a}}
@@ -42,18 +42,20 @@ const LS=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k))
 const ENV={MFELP:[121.5,101.3,123.25,4.8,18.16,180,330],'MFE0.9D':[121.5,101.3,123.25,4.8,18.16,180,330],MFBS:[187,147.1,196,5.3,40.8,null,280],MFBR:[194,146.13,127.55,5.15,30.07,null,280],MFV12D:[81,53.2,110.7,3.18,7.35,115,210],'MFT4.5-8':[81,53.2,110.7,3.18,7.35,115,210],MFTC:[81,53.2,110.7,3.18,7.35,115,210],MFV16:[89.9,66.47,116.2,3.28,10.62,115,210],'MFDP-D':[95.4,65.6,116,4.1,18.67,110,null],'MFE0.5D':[95.4,65.6,116,4.1,11.23,220,275],'MFE0.5B-M':[108,92,86,4.1,12.13,280,225],'MFE0.9-1N':[115.5,97.9,85,4.8,12.97,null,null],MFE180R:[80.9,66.9,50.5,3,5.11,221,null]};
 const TAP={'MFT0.5 LT':[124.4,121.2,16.5,8.63,400],'MFT0.5 LT-1':[124.4,121.2,16.5,8.63,400],'MFT1LT -1':[124.4,121.2,16.5,8.63,400],MFTP1L:[109.84,106.54,17.35,7.5,420],MFTPH:[97.24,93.7,16.56,5.93,280]};
 // [clave, etiqueta, 1 = "SI" es conforme / 0 = "NO" es conforme]
-const CK={E:[['despeje','Despeje de línea',1],['sellado','Sellado lateral y fondo',1],['curling','Formado de curling',1],['desgarre','Desgarre',1],['rayaduras','Rayaduras',0],['puntos','Puntos / grasa',0],['repinte','Repinte',0],['marca','Marca distintiva en el blank',1],['funcional','Prueba funcional',1]],
-T:[['despeje','Despeje de línea',1],['color','Diferencia de color',0],['tamano','Diferencia de tamaño',0],['cierre','Cierre de tapa y envase',1],['blank','Sellado blank y aro',1],['desgarre','Desgarre',1],['repinte','Repinte',0],['movidas','Movidas',0],['rebaba','Rebaba',0],['perf','Mal perforadas',0],['marca','Marca distintiva (circulina/cintillo)',1]]};
-const MS={E:[['sup','Diám. superior (mm)'],['inf','Diám. inferior (mm)'],['alt','Altura (mm)'],['curl','Curling (mm)'],['peso','Peso (g)'],['tl','T° sellado lateral (°C)'],['tf','T° sellado fondo (°C)']],
-T:[['sup','Diám. superior (mm)'],['inf','Diám. inferior (mm)'],['alt','Altura (mm)'],['peso','Peso (g)'],['ts','T° sellado (°C)']]};
+const CK={E:[['despeje','Despeje de linea',1],['sellado','Sellado lateral y fondo',1],['curling','Formado de curling',1],['desgarre','Desgarre',1],['rayaduras','Rayaduras',0],['puntos','Puntos/ Grasa',0],['repinte','Repinte',0],['marca','Verificación de la marca distintiva en el blank',1],['funcional','Prueba funcional',1]],
+T:[['despeje','Despeje de linea',1],['color','Diferencia de color',0],['tamano','Diferencia de Tamaño',0],['cierre','Cierre de tapa y envase',1],['blank','Sellado blank y aro',1],['desgarre','Desgarre',1],['repinte','Repinte',0],['movidas','Movidas',0],['rebaba','Rebaba',0],['perf','Mal perforadas',0],['marca','Verificación de la marca distintiva en la circulina y cintillo',1]]};
+const MS={E:[['sup','Diametro superior (mm)'],['inf','Diametro inferior (mm)'],['alt','Altura (mm)'],['curl','Curling (mm)'],['peso','Peso(gr)'],['tl','Temperatura de sellado lateral (°C)'],['tf','Temperatura de sellado de fondo (°C)']],
+T:[['sup','Diametro superior (mm)'],['inf','Diametro inferior (mm)'],['alt','Altura (mm)'],['peso','Peso(gr)'],['ts','Temperatura de sellado (°C)']]};
+const AC=[['bolsa','Bolsa de embalaje',1],['cajas','Cajas de embalaje',1],['sbolsa','Sellado de bolsas',1],['conteo','Conteo',1],['rotulo','Rotulado',1],['contam','Contaminacion fisica',0]];
 const AQL=[[2,2],[9,3],[16,5],[26,8],[51,13],[91,20],[151,32],[281,50],[501,80],[1201,125],[3201,200],[10001,315],[35001,500],[150001,800],[500001,1250]];
 const aql=l=>{let r=null;for(const[a,b]of AQL)if(l>=a)r=b;return r};
 const tipo=m=>TAP[m]?'T':'E';
 const ref=m=>{const a=ENV[m]||TAP[m]||[];const o={};if(m)MS[tipo(m)].forEach((k,i)=>o[k[0]]=a[i]);return o};
 let regs=LS('cc_regs')||[],head=LS('cc_head')||{fecha:new Date().toISOString().slice(0,10),turno:'Día',analista:''},cur,editId=null;
-const nuevo=m=>{const ck={};CK[m?tipo(m):'E'].forEach(c=>ck[c[0]]=c[2]?'SI':'NO');return{maq:m||'',op:'',cli:'',prod:'',avance:'',lote:'',muestra:'',ck,ms:{},fil:Array(10).fill('NO')}};
+const nuevo=m=>{const ck={};CK[m?tipo(m):'E'].forEach(c=>ck[c[0]]=c[2]?'SI':'NO');const ac={};AC.forEach(c=>ac[c[0]]=c[2]?'SI':'NO');return{ac,mq:'',ncT:'',causa:'',acT:'',est:'',d:false,maq:m||'',op:'',cli:'',prod:'',avance:'',lote:'',muestra:'',ck,ms:{},fil:Array(10).fill('NO')}};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function nc(r){const t=tipo(r.maq),l=[];CK[t].forEach(c=>{const v=r.ck[c[0]];if(v&&v!='N/A'&&(v=='SI')!=(c[2]==1))l.push(c[1])});if(t=='E')r.fil.forEach((v,i)=>{if(v=='SI')l.push('Filtración molde '+(i+1))});return l}
+function nc(r){const t=tipo(r.maq),l=[];CK[t].forEach(c=>{const v=r.ck[c[0]];if(v&&v!='N/A'&&(v=='SI')!=(c[2]==1))l.push(c[1])});if(t=='E')r.fil.forEach((v,i)=>{if(v=='SI')l.push('Filtración molde '+(i+1))});AC.forEach(c=>{const v=(r.ac||{})[c[0]];if(v&&v!='N/A'&&(v=='SI')!=(c[2]==1))l.push(c[1])});return l}
+const segs=(L,g,o)=>L.map(c=>`<div class="row"><span>${c[1]}</span><div class="seg">${['SI','NO','N/A'].map(v=>`<button type="button" data-g="${g}" data-ck="${c[0]}" data-v="${v}" class="${o[c[0]]==v?'on '+(v=='N/A'?'na':((v=='SI')==(c[2]==1)?'g':'r')):''}">${v}</button>`).join('')}</div></div>`).join('');
 function form(){const r=cur,t=r.maq?tipo(r.maq):null,rf=ref(r.maq);
 let h=`<div class="g"><label>Máquina<select data-f="maq" id="maq"><option value="">Seleccionar…</option>${[...Object.keys(ENV),...Object.keys(TAP)].map(m=>`<option ${m==r.maq?'selected':''}>${m}</option>`).join('')}</select></label>
 <label>OP<input data-f="op" value="${esc(r.op)}"></label><label>Cliente<input data-f="cli" value="${esc(r.cli)}"></label>
@@ -61,9 +63,10 @@ let h=`<div class="g"><label>Máquina<select data-f="maq" id="maq"><option value
 <label>Tamaño de lote (opcional)<input data-f="lote" type="number" value="${esc(r.lote)}"></label>
 <label>Cantidad de muestra<input data-f="muestra" id="muestra" type="number" value="${esc(r.muestra)}"></label></div>
 <div class="hint" id="aqlh"></div>`;
-if(t){h+=`<h2 style="margin-top:14px">Inspección</h2>`+CK[t].map(c=>`<div class="row"><span>${c[1]}</span><div class="seg">${['SI','NO','N/A'].map(v=>`<button type="button" data-ck="${c[0]}" data-v="${v}" class="${r.ck[c[0]]==v?'on '+(v=='N/A'?'na':((v=='SI')==(c[2]==1)?'g':'r')):''}">${v}</button>`).join('')}</div></div>`).join('');
+if(t){h+=`<h2 style="margin-top:14px">Inspección</h2>`+segs(CK[t],'ck',r.ck);
 h+=`<h2 style="margin-top:14px">Medidas <span class="hint">(placeholder = valor de referencia de la máquina)</span></h2><div class="g">`+MS[t].map(k=>`<label>${k[1]}<input type="number" step="any" data-m="${k[0]}" value="${esc(r.ms[k[0]])}" placeholder="${rf[k[0]]??'-'}"></label>`).join('')+`</div>`;
 if(t=='E')h+=`<h2 style="margin-top:14px">Migración de agua / moldes <span class="hint">(NO = sin filtración)</span></h2><div class="chips">${r.fil.map((v,i)=>`<button type="button" data-fil="${i}" class="${v=='SI'?'r':''}">${i+1}: ${v}</button>`).join('')}</div>`}
+if(t)h+=`<h2 style="margin-top:14px">Acabados</h2>`+segs(AC,'ac',r.ac||{})+`<h2 style="margin-top:14px">Observaciones</h2><div class="g"><label>Maquinista (MAQ)<input data-f="mq" value="${esc(r.mq)}"></label><label>NC<input data-f="ncT" value="${esc(r.ncT)}"></label><label>Causa<input data-f="causa" value="${esc(r.causa)}"></label><label>AC (acción correctiva)<input data-f="acT" value="${esc(r.acT)}"></label><label>EST<input data-f="est" value="${esc(r.est)}"></label><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" data-f="d" style="width:auto" ${r.d?'checked':''}>Marcar "D" (columna final)</label></div>`;
 h+=`<div class="bar"><button class="pri" onclick="save()">${editId?'Guardar cambios':'Agregar registro'}</button>${editId?'<button onclick="reset()">Cancelar</button>':''}</div>`;
 $('#form').innerHTML=h;$('#ft').textContent=editId?'Editando registro':'Nuevo registro'}
 function reset(){editId=null;cur=nuevo();form()}
@@ -74,18 +77,42 @@ if(editId)regs=regs.map(x=>x.id==editId?rec:x);else regs.push(rec);
 LS('cc_regs',regs);const keep=cur.maq;editId=null;cur=nuevo(keep);cur.op='';form();list()}
 function list(){const R=[...regs].reverse();$('#cnt').textContent=`(${regs.length} · ${regs.filter(r=>nc(r).length).length} no conformes)`;
 $('#tb').innerHTML='<tr><th>Fecha</th><th>Turno</th><th>Máquina</th><th>OP</th><th>Producto</th><th>Muestra</th><th>Avance</th><th>Resultado</th><th class="noprint"></th></tr>'+R.map(r=>{const n=nc(r);return`<tr><td>${r.fecha}</td><td>${r.turno}</td><td>${esc(r.maq)}</td><td>${esc(r.op)}</td><td>${esc(r.prod)}</td><td>${r.muestra}</td><td>${r.avance}</td><td class="${n.length?'bad':'ok'}">${n.length?'NO CONFORME: '+esc(n.join(', ')):'Conforme'}</td><td class="noprint"><button onclick="ed(${r.id})">✎</button> <button onclick="del(${r.id})">✕</button></td></tr>`}).join('')}
-function ed(id){const r=regs.find(x=>x.id==id);editId=id;cur=JSON.parse(JSON.stringify(r));form();scrollTo(0,0)}
+function ed(id){const r=regs.find(x=>x.id==id);editId=id;cur=JSON.parse(JSON.stringify(r));cur.ac=cur.ac||nuevo().ac;form();scrollTo(0,0)}
 function del(id){if(confirm('¿Eliminar registro?')){regs=regs.filter(x=>x.id!=id);LS('cc_regs',regs);list()}}
-function xl(){if(!window.XLSX)return alert('No se pudo cargar la librería de Excel (¿sin internet?).');
-const rows=regs.map(r=>{const t=tipo(r.maq),o={Fecha:r.fecha,Turno:r.turno,Analista:r.analista,Máquina:r.maq,Tipo:t=='E'?'Envase/Vaso':'Aro/Tapa',Cliente:r.cli,OP:r.op,Producto:r.prod,'Cantidad avance':r.avance,Lote:r.lote,'Cantidad de muestra':r.muestra};
-CK[t].forEach(c=>o[c[1]]=r.ck[c[0]]);MS[t].forEach(k=>o[k[1]]=r.ms[k[0]]??'');if(t=='E')r.fil.forEach((v,i)=>o['Filtración '+(i+1)]=v);o.Resultado=nc(r).length?'NO CONFORME':'Conforme';o['No conformidades']=nc(r).join('; ');return o});
-const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Registro');XLSX.writeFile(wb,`Control_Proceso_${head.fecha}_${head.turno}.xlsx`)}
-document.addEventListener('input',e=>{const d=e.target.dataset;if(d.f){cur[d.f]=e.target.value;if(d.f=='maq'){const k=cur.maq;const keep={op:cur.op,cli:cur.cli,prod:cur.prod,avance:cur.avance,lote:cur.lote,muestra:cur.muestra};cur=Object.assign(nuevo(k),keep);form()}
+async function xl(){if(!window.ExcelJS)return alert('No se pudo cargar ExcelJS (¿sin internet?).');
+const th={style:'thin'},bd={top:th,left:th,bottom:th,right:th},wb=new ExcelJS.Workbook(),G={},used={};
+regs.forEach(r=>{const k=[r.fecha,r.turno,r.analista].join('|');(G[k]=G[k]||[]).push(r)});
+const put=(ws,r1,c1,r2,c2,v,o={})=>{if(r2>r1||c2>c1)ws.mergeCells(r1,c1,r2,c2);const c=ws.getCell(r1,c1);c.value=v;c.alignment={horizontal:'center',vertical:'middle',wrapText:true,textRotation:o.rot||0};c.font={name:o.f||'Arial',size:o.s||10,bold:!!o.b};for(let i=r1;i<=r2;i++)for(let j=c1;j<=c2;j++)ws.getCell(i,j).border=bd;return c};
+const EC=['despeje','sellado','curling','desgarre','rayaduras','puntos','repinte','marca','funcional'],EM=['sup','inf','alt','curl','peso','tl','tf'],TC=['color','tamano','cierre','blank','desgarre','repinte','movidas','rebaba','perf','marca'],TM=['sup','inf','alt','peso','ts'];
+const nz=x=>x===undefined||x===''||x==='N/A'?'-':x;
+for(const k in G){const [f,tu,an]=k.split('|'),L=G[k];for(let p=0;p<L.length;p+=8){const part=L.slice(p,p+8);
+let nm=`${f.slice(8,10)}.${f.slice(5,7)}.${f.slice(2,4)} ${tu} ${an.split(' ')[0]}`.replace(/[\\\/?*\[\]:]/g,'').slice(0,28),n=used[nm]=(used[nm]||0)+1;if(n>1)nm+=` (${n})`;
+const ws=wb.addWorksheet(nm);ws.pageSetup={orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0};
+for(let c=2;c<=61;c++)ws.getColumn(c).width=(c>=19&&c<=25)||(c>=46&&c<=50)?8:c==60?27:c==3?13:5;ws.getColumn(2).width=7;ws.getColumn(4).width=9;ws.getColumn(9).width=8;
+ws.getRow(1).height=58;ws.getRow(4).height=12;ws.getRow(5).height=76;
+put(ws,1,2,1,4,'');put(ws,1,5,1,54,'REGISTRO CONTROL PROCESO UNIDAD VASOS, ENVASES Y TAPAS',{f:'Times New Roman',s:16,b:1});put(ws,1,55,1,60,'Código: EX-F-CC-04\nVersión: 04\nFecha: 19/03/2025\nPágina: 1 de 1',{s:8});
+put(ws,2,2,5,8,'Descripcion del Producto',{b:1});put(ws,2,9,2,50,'Envases/Vasos/Aros y Tapas',{b:1});put(ws,2,51,3,56,'Acabados',{b:1});put(ws,2,57,5,60,'Observaciones',{b:1});
+[[9,18,'Envases/Vasos'],[19,25,'Medidas'],[26,35,'Migracion de agua/Moldes'],[36,45,'Aros/Tapas'],[46,50,'Medidas']].forEach(x=>put(ws,3,x[0],3,x[1],x[2],{b:1}));
+['Cantidad  de muestra',...CK.E.map(c=>c[1]),...MS.E.map(c=>c[1])].forEach((x,i)=>put(ws,4,9+i,5,9+i,x,{s:8,rot:90}));
+for(let i=0;i<10;i++){put(ws,4,26+i,4,26+i,i+1,{s:8});put(ws,5,26+i,5,26+i,'Filtracion/Goteo',{s:8,rot:90})}
+[...CK.T.slice(1).map(c=>c[1]),...MS.T.map(c=>c[1]),...AC.map(c=>c[1])].forEach((x,i)=>put(ws,4,36+i,5,36+i,x,{s:8,rot:90}));
+part.forEach((r,i)=>{const R=6+i*5,t=tipo(r.maq),v={};const ck=r.ck,ms=r.ms,ac=r.ac||{};
+v[9]=r.muestra;v[10]=nz(ck.despeje);
+if(t=='E'){EC.slice(1).forEach((x,j)=>v[11+j]=nz(ck[x]));EM.forEach((x,j)=>v[19+j]=nz(ms[x]));r.fil.forEach((x,j)=>v[26+j]=x);for(let c=36;c<=50;c++)v[c]='-'}
+else{for(let c=11;c<=35;c++)v[c]='-';TC.forEach((x,j)=>v[36+j]=nz(ck[x]));TM.forEach((x,j)=>v[46+j]=nz(ms[x]))}
+AC.forEach((c,j)=>v[51+j]=nz(ac[c[0]]));v[61]=r.d?'D':'';
+for(let c=9;c<=56;c++)put(ws,R,c,R+4,c,v[c]);put(ws,R,61,R+4,61,v[61]);
+put(ws,R,2,R,2,'Fecha');put(ws,R,3,R,3,new Date(r.fecha+'T00:00:00')).numFmt='dd/mm/yyyy';put(ws,R,4,R,4,'Maquina');put(ws,R,5,R,8,r.maq);
+[['Cliente',r.cli],['OP',r.op],['Prod.',r.prod],['Cantidad Avance',r.avance]].forEach((x,j)=>{put(ws,R+1+j,2,R+1+j,2,x[0]);put(ws,R+1+j,3,R+1+j,8,x[1])});
+[['MAQ:',r.mq],['NC:',r.ncT],['CAUSA:',r.causa],['AC:',r.acT],['EST:',r.est]].forEach((x,j)=>{put(ws,R+j,57,R+j,59,x[0]);put(ws,R+j,60,R+j,60,x[1]||'')})});
+const F=6+part.length*5;put(ws,F,2,F,3,'Turno :');put(ws,F,4,F,8,tu);put(ws,F,9,F,27,'Apellidos y Nombres del Analista');put(ws,F,28,F,60,an)}}
+const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/octet-stream'}));a.download=`EX-F-CC-04_${head.fecha}.xlsx`;a.click()}
+document.addEventListener('input',e=>{const d=e.target.dataset;if(d.f){cur[d.f]=e.target.type=='checkbox'?e.target.checked:e.target.value;if(d.f=='maq'){const k=cur.maq;const keep={op:cur.op,cli:cur.cli,prod:cur.prod,avance:cur.avance,lote:cur.lote,muestra:cur.muestra};cur=Object.assign(nuevo(k),keep);form()}
 if(d.f=='lote'){const s=aql(+e.target.value);$('#aqlh').textContent=s?`Muestra sugerida por tabla AQL: ${s}`:'';if(s&&!cur.muestra){cur.muestra=s;$('#muestra').value=s}}}
 if(d.m)cur.ms[d.m]=e.target.value;
 if(e.target.closest('.card')&&['fecha','turno','analista'].includes(e.target.id)){head[e.target.id]=e.target.value;LS('cc_head',head)}});
 document.addEventListener('click',e=>{const b=e.target.closest('button'),d=b&&b.dataset;if(!d)return;
-if(d.ck){cur.ck[d.ck]=d.v;form()}if(d.fil!==undefined){cur.fil[d.fil]=cur.fil[d.fil]=='SI'?'NO':'SI';form()}});
+if(d.ck){cur[d.g||'ck'][d.ck]=d.v;form()}if(d.fil!==undefined){cur.fil[d.fil]=cur.fil[d.fil]=='SI'?'NO':'SI';form()}});
 $('#fecha').value=head.fecha;$('#turno').value=head.turno;$('#analista').value=head.analista;
 cur=nuevo();form();list();
 </script></body></html>
