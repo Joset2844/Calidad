@@ -2,6 +2,12 @@
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Control de Calidad · Proceso</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b5cab">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
 :root{--bg:#f4f6f8;--c:#fff;--t:#1d2733;--m:#6b7785;--b:#d9dfe5;--p:#0b5cab;--ok:#1b8a4b;--no:#c62f2f}
@@ -115,4 +121,5 @@ document.addEventListener('click',e=>{const b=e.target.closest('button'),d=b&&b.
 if(d.ck){cur[d.g||'ck'][d.ck]=d.v;form()}if(d.fil!==undefined){cur.fil[d.fil]=cur.fil[d.fil]=='SI'?'NO':'SI';form()}});
 $('#fecha').value=head.fecha;$('#turno').value=head.turno;$('#analista').value=head.analista;
 cur=nuevo();form();list();
+if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script></body></html>
